@@ -33,6 +33,7 @@ switch (discountStrategy)
 
 builder.Services.AddScoped<IPedidoService, PedidoService>();
 builder.Services.AddSingleton<IDescuento>(sp => sp.GetRequiredService<IDiscountStrategy>());
+builder.Services.AddScoped<CatalogoService>();
 builder.Services.AddScoped<ICatalogo, CatalogoConCacheService>();
 builder.Services.AddScoped<IClientes, ClientesService>();
 builder.Services.AddScoped<PedidoPersistencia>();

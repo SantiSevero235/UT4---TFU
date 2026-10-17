@@ -5,7 +5,7 @@ using Microsoft.Extensions.Caching.Memory;
 namespace MaquetaApi.Services;
 
 public sealed class CatalogoConCacheService(
-    ICatalogo catalogo,
+    CatalogoService catalogo,
     IMemoryCache cache,
     ILogger<CatalogoConCacheService> logger) : ICatalogo
 {
