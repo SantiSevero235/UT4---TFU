@@ -1,5 +1,7 @@
 $ErrorActionPreference = 'Stop'
 $baseUrl = 'http://localhost:5050'
+$apiKey = 'dev-key-12345'
+$headers = @{ 'X-API-Key' = $apiKey }
 
 for ($attempt = 1; $attempt -le 20; $attempt++) {
     try {
@@ -22,8 +24,8 @@ $instances = 1..6 | ForEach-Object {
 Write-Host "Instancias atendiendo: $($instances -join ', ')"
 
 Write-Host '2. Lectura desde PostgreSQL compartido'
-$productsBefore = Invoke-RestMethod "$baseUrl/api/productos"
-$ordersBefore = (Invoke-RestMethod "$baseUrl/api/pedidos").Count
+$productsBefore = Invoke-RestMethod "$baseUrl/api/productos" -Headers $headers
+$ordersBefore = (Invoke-RestMethod "$baseUrl/api/pedidos" -Headers $headers).Count
 $productBefore = $productsBefore | Where-Object Id -eq 'prod-001'
 Write-Host "Stock inicial prod-001: $($productBefore.Stock)"
 
@@ -38,23 +40,31 @@ $body = @{
 } | ConvertTo-Json -Depth 5
 
 Write-Host '3. Pedido valido: descuenta stock y persiste el pedido'
-$createdOrder = Invoke-RestMethod "$baseUrl/api/pedidos" -Method Post -ContentType 'application/json' -Body $body
-$productsAfterSuccess = Invoke-RestMethod "$baseUrl/api/productos"
+$createdOrder = Invoke-RestMethod "$baseUrl/api/pedidos" -Method Post -Headers $headers -ContentType 'application/json' -Body $body
+$productsAfterSuccess = Invoke-RestMethod "$baseUrl/api/productos" -Headers $headers
 $productAfterSuccess = $productsAfterSuccess | Where-Object Id -eq 'prod-001'
 Write-Host "Total calculado: $($createdOrder.total)"
 Write-Host "Stock despues del pedido: $($productAfterSuccess.Stock)"
 
 Write-Host '4. Pedido fallido: la transaccion ACID debe revertir el stock'
+$errorPedidoFallido = $null
 try {
-    Invoke-RestMethod "$baseUrl/api/pedidos?simularError=true" -Method Post -ContentType 'application/json' -Body $body | Out-Null
-    throw 'El pedido simulado no fallo como se esperaba.'
+    Invoke-RestMethod "$baseUrl/api/pedidos?simularError=true" -Method Post -Headers $headers -ContentType 'application/json' -Body $body | Out-Null
 }
 catch {
-    Write-Host "Respuesta esperada del pedido fallido: HTTP 400"
+    $errorPedidoFallido = $_
 }
 
-$productsAfterFailure = Invoke-RestMethod "$baseUrl/api/productos"
-$ordersAfterFailure = (Invoke-RestMethod "$baseUrl/api/pedidos").Count
+if ($null -eq $errorPedidoFallido) {
+    throw 'El pedido simulado no fallo como se esperaba.'
+}
+if ([int]$errorPedidoFallido.Exception.Response.StatusCode -ne 400) {
+    throw $errorPedidoFallido
+}
+Write-Host "Respuesta esperada del pedido fallido: HTTP 400"
+
+$productsAfterFailure = Invoke-RestMethod "$baseUrl/api/productos" -Headers $headers
+$ordersAfterFailure = (Invoke-RestMethod "$baseUrl/api/pedidos" -Headers $headers).Count
 $productAfterFailure = $productsAfterFailure | Where-Object Id -eq 'prod-001'
 
 if ($productAfterFailure.Stock -ne $productAfterSuccess.Stock) {

@@ -1,12 +1,13 @@
 param(
     [int]$Repeticiones = 5,
-    [string]$BaseUrl = "http://localhost:5050"
+    [string]$BaseUrl = "http://localhost:5050",
+    [string]$ApiKey = "dev-key-12345"
 )
 
 function PedirReporte([bool]$Directo) {
     $url = "$BaseUrl/api/reportes/ventas-por-producto"
     if ($Directo) { $url += "?directo=true" }
-    Invoke-RestMethod $url
+    Invoke-RestMethod $url -Headers @{ "X-API-Key" = $ApiKey }
 }
 
 # Una llamada de calentamiento y despues el promedio de N mediciones (tiempo medido en el servidor)
@@ -45,7 +46,7 @@ if ((Resumen (PedirReporte $true)) -eq (Resumen (PedirReporte $false))) {
 
 # 3. Pedido nuevo: la vista queda atrasada hasta el proximo refresco
 $json = '{"clienteId":"cliente-test-001","items":[{"productoId":"prod-001","cantidad":1}]}'
-Invoke-RestMethod -Method Post -Uri "$BaseUrl/api/pedidos" -ContentType "application/json" -Body $json | Out-Null
+Invoke-RestMethod -Method Post -Uri "$BaseUrl/api/pedidos" -Headers @{ "X-API-Key" = $ApiKey } -ContentType "application/json" -Body $json | Out-Null
 
 Write-Host ""
 Write-Host "Despues de un pedido nuevo de prod-001:"
